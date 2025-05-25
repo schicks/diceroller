@@ -23,10 +23,14 @@ footer {
 }
 
 #automerge-logo {
-  width: 1.7ex;
-  height: auto;
-  margin-right: 10px;
-  vertical-align: middle;
+  height: 3em;
+  padding: 0.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+
+#automerge-logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
 }
 
 .task {
@@ -52,4 +56,128 @@ footer {
 
 .read-the-docs {
   color: #888;
+}
+
+.timer-section {
+  text-align: center;
+  margin: 2rem 0;
+  padding: 2rem;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.timer {
+  font-size: 3rem;
+  font-weight: bold;
+  margin: 1rem 0;
+}
+
+.vote-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.add-topic {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.add-topic input {
+  flex: 1;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2rem 0;
+}
+
+th, td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background-color: #f5f5f5;
+  font-weight: bold;
+}
+
+tr.completed {
+  opacity: 0.7;
+}
+
+.completed-text,
+input.completed-text {
+  text-decoration: line-through;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+}
+
+/* Make button styles more specific to override index.css */
+#root button,
+.timer-section button,
+.add-topic button,
+table button {
+  background-color: #1a365d !important;
+  color: white !important;
+  border: none !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s !important;
+}
+
+#root button:hover,
+.timer-section button:hover,
+.add-topic button:hover,
+table button:hover {
+  background-color: #2c4f8c !important;
+  border-color: transparent !important;
+}
+
+#root button.voted,
+.timer-section button.voted,
+.add-topic button.voted,
+table button.voted {
+  background-color: #38a169 !important;
+}
+
+#root button.voted:hover,
+.timer-section button.voted:hover,
+.add-topic button.voted:hover,
+table button.voted:hover {
+  background-color: #2f855a !important;
+}
+
+#root button.call-vote,
+.timer-section button.call-vote {
+  background-color: #805ad5 !important;
+  margin-left: 1rem !important;
+}
+
+#root button.call-vote:hover,
+.timer-section button.call-vote:hover {
+  background-color: #6b46c1 !important;
+}
+
+.show-completed {
+  margin: 2rem 0;
+}
+
+/* Flash animation for timer */
+@keyframes flash {
+  0% { background-color: #f5f5f5; }
+  50% { background-color: #ffeb3b; }
+  100% { background-color: #f5f5f5; }
+}
+
+.timer.flash {
+  animation: flash 1s ease-in-out;
 }
