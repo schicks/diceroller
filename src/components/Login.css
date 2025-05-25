@@ -1,0 +1,32 @@
+.login-container {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.username-input {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.username-display {
+  padding: 0.5rem 1rem;
+  border: 2px dashed var(--primary);
+  border-radius: 4px;
+  cursor: pointer;
+  min-width: 200px;
+  font-family: monospace;
+}
+
+.username-display:hover {
+  border-style: solid;
+}
+
+.username-input input {
+  min-width: 200px;
+  margin: 0;
+} 

@@ -5,6 +5,45 @@ import { useDocument, updateText, type AutomergeUrl } from "@automerge/react";
 import { useState, useEffect } from "react";
 
 /**
+ * Get initials from a username
+ * Examples:
+ * - "John Doe" -> "JD"
+ * - "john.doe" -> "JD"
+ * - "johndoe" -> "JO"
+ */
+const getUserInitials = (username: string): string => {
+  // Split by common separators
+  const parts = username.split(/[\s._-]/);
+  if (parts.length > 1) {
+    // If we have multiple parts, use first letter of first and last parts
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  // Otherwise use first and last letter of the username
+  return (username[0] + username[username.length - 1]).toUpperCase();
+};
+
+/**
+ * Generate a consistent HSL color from a string
+ * Returns a muted, professional color suitable for UI
+ */
+const generateUserColor = (username: string): string => {
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) {
+    hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  // Generate HSL color with:
+  // - Hue: Full range (0-360)
+  // - Saturation: 35-45% (muted but visible)
+  // - Lightness: 45-55% (visible on both light and dark backgrounds)
+  const hue = hash % 360;
+  const saturation = 40 + (hash % 10);
+  const lightness = 50 + (hash % 10);
+
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+};
+
+/**
  * Votes is a map of user ids to a boolean value.
  * true is an upvote, false is a downvote.
  * Remove the user id to remove the vote. When downvotes are not relevant, a downvote can be treated as removing a vote.
@@ -25,22 +64,68 @@ export type LeanCoffee = {
       completed?: boolean;
     };
   };
+  heartbeats: {
+    [userId: string]: number; // timestamp of last heartbeat
+  };
 };
 
-// For now, using a mock user ID. In a real app, this would come from auth
-const MOCK_USER_ID = "user1";
 const TIMER_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
+const ONLINE_THRESHOLD = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 interface AppProps {
   doc: LeanCoffee | undefined;
   changeDoc: (fn: (doc: LeanCoffee) => void) => void;
+  userId: string;
 }
 
-export function App({ doc, changeDoc }: AppProps) {
+export function App({ doc, changeDoc, userId }: AppProps) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isFlashing, setIsFlashing] = useState(false);
+
+  // Initialize heartbeats if not present and set up heartbeat interval
+  useEffect(() => {
+    if (!doc) return;
+
+    // Initialize heartbeats object if it doesn't exist
+    if (!doc.heartbeats) {
+      changeDoc((d) => {
+        d.heartbeats = {};
+      });
+    }
+
+    // Send initial heartbeat
+    changeDoc((d) => {
+      d.heartbeats[userId] = Date.now();
+    });
+
+    // Set up interval for heartbeats
+    const interval = setInterval(() => {
+      changeDoc((d) => {
+        d.heartbeats[userId] = Date.now();
+      });
+    }, HEARTBEAT_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [doc, userId]);
+
+  // Function to check if a user is online
+  const isUserOnline = (lastHeartbeat: number) => {
+    return Date.now() - lastHeartbeat < ONLINE_THRESHOLD;
+  };
+
+  // Get list of online users with their info
+  const onlineUsers = doc?.heartbeats
+    ? Object.entries(doc.heartbeats)
+        .filter(([, lastHeartbeat]) => isUserOnline(lastHeartbeat))
+        .map(([user]) => ({
+          id: user,
+          initials: getUserInitials(user),
+          color: generateUserColor(user),
+        }))
+    : [];
 
   useEffect(() => {
     if (!doc?.activeTopic) {
@@ -84,7 +169,7 @@ export function App({ doc, changeDoc }: AppProps) {
       if (!d.topics) d.topics = {};
       d.topics[topicId] = {
         title: newTopicTitle,
-        author: MOCK_USER_ID,
+        author: userId,
         votes: {},
       };
     });
@@ -104,19 +189,19 @@ export function App({ doc, changeDoc }: AppProps) {
 
       // For regular topic votes (not timer votes), just toggle between voted and not voted
       if (!isTimerVote) {
-        if (votes[MOCK_USER_ID]) {
-          delete votes[MOCK_USER_ID];
+        if (votes[userId]) {
+          delete votes[userId];
         } else {
-          votes[MOCK_USER_ID] = true;
+          votes[userId] = true;
         }
         return;
       }
 
       // For timer votes, handle the continue/stop voting
-      if (votes[MOCK_USER_ID] === voteValue) {
-        delete votes[MOCK_USER_ID];
+      if (votes[userId] === voteValue) {
+        delete votes[userId];
       } else {
-        votes[MOCK_USER_ID] = voteValue!;
+        votes[userId] = voteValue!;
       }
     });
   };
@@ -210,6 +295,24 @@ export function App({ doc, changeDoc }: AppProps) {
           <img src={automergeLogo} alt="Automerge logo" id="automerge-logo" />
           Lean Coffee
         </h1>
+        <div className="online-users">
+          <div className="online-users-circles">
+            {onlineUsers.map((user) => (
+              <div
+                key={user.id}
+                className="user-circle"
+                style={{ backgroundColor: user.color }}
+              >
+                {user.initials}
+                <span className="user-tooltip">{user.id}</span>
+              </div>
+            ))}
+          </div>
+          <div className="online-users-count">
+            {onlineUsers.length} user{onlineUsers.length !== 1 ? "s" : ""}{" "}
+            online
+          </div>
+        </div>
       </header>
 
       <div className="timer-section">
@@ -223,7 +326,7 @@ export function App({ doc, changeDoc }: AppProps) {
               <button
                 onClick={() => toggleVote(doc!.activeTopic!.id, true, true)}
                 className={
-                  doc?.activeTopic?.votes[MOCK_USER_ID] === true ? "voted" : ""
+                  doc?.activeTopic?.votes[userId] === true ? "voted" : ""
                 }
               >
                 Continue ({continueVotes})
@@ -231,7 +334,7 @@ export function App({ doc, changeDoc }: AppProps) {
               <button
                 onClick={() => toggleVote(doc!.activeTopic!.id, true, false)}
                 className={
-                  doc?.activeTopic?.votes[MOCK_USER_ID] === false ? "voted" : ""
+                  doc?.activeTopic?.votes[userId] === false ? "voted" : ""
                 }
               >
                 Stop ({stopVotes})
@@ -288,7 +391,7 @@ export function App({ doc, changeDoc }: AppProps) {
                   className={topic.completed ? "completed" : ""}
                 >
                   <td className={topic.completed ? "completed-text" : ""}>
-                    {topic.author === MOCK_USER_ID ? (
+                    {topic.author === userId ? (
                       <input
                         type="text"
                         value={topic.title}
@@ -304,7 +407,7 @@ export function App({ doc, changeDoc }: AppProps) {
                   <td>
                     <button
                       onClick={() => toggleVote(topicId)}
-                      className={topic.votes[MOCK_USER_ID] ? "voted" : ""}
+                      className={topic.votes[userId] ? "voted" : ""}
                       disabled={topic.completed}
                     >
                       {getTopicVoteCount(topic.votes)}
@@ -342,8 +445,13 @@ export function App({ doc, changeDoc }: AppProps) {
   );
 }
 
-export default function AppWrapper({ docUrl }: { docUrl: AutomergeUrl }) {
+interface AppWrapperProps {
+  docUrl: AutomergeUrl;
+  userId: string;
+}
+
+export default function AppWrapper({ docUrl, userId }: AppWrapperProps) {
   const [doc, changeDoc] = useDocument<LeanCoffee>(docUrl);
 
-  return <App doc={doc} changeDoc={changeDoc} />;
+  return <App doc={doc} changeDoc={changeDoc} userId={userId} />;
 }

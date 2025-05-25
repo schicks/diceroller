@@ -1,0 +1,8 @@
+---
+description: 
+globs: *.tsx
+alwaysApply: false
+---
+- separate components into a thin wrapper component and an implementation component that contains the logic. The goal should be to "inject" things that we don't need to test into the implementation component.
+- use react testing library to write tests against the implementation component. Make sure there are always tests on implementation components.
+- when tests are changed or code covered by tests are changed, run them to make sure they pass.
