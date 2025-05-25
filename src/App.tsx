@@ -31,8 +31,12 @@ export type LeanCoffee = {
 const MOCK_USER_ID = "user1";
 const TIMER_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-function App({ docUrl }: { docUrl: AutomergeUrl }) {
-  const [doc, changeDoc] = useDocument<LeanCoffee>(docUrl);
+interface AppProps {
+  doc: LeanCoffee | undefined;
+  changeDoc: (fn: (doc: LeanCoffee) => void) => void;
+}
+
+export function App({ doc, changeDoc }: AppProps) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -54,37 +58,23 @@ function App({ docUrl }: { docUrl: AutomergeUrl }) {
       setTimeLeft(newRemaining);
 
       if (newRemaining === 0) {
-        const continueVotes = Object.values(doc.activeTopic!.votes).filter(
-          (v) => v
-        ).length;
-        const stopVotes = Object.values(doc.activeTopic!.votes).filter(
-          (v) => !v
-        ).length;
-
-        if (continueVotes > stopVotes) {
-          setIsFlashing(true);
-          setTimeout(() => setIsFlashing(false), 1000);
-          // Restart timer
-          changeDoc((d) => {
-            if (d.activeTopic) {
-              d.activeTopic.timerStarted = Date.now();
-              d.activeTopic.votes = {};
-            }
-          });
-        } else {
-          // Mark topic as completed and clear active topic
-          changeDoc((d) => {
-            if (d.activeTopic && d.topics[d.activeTopic.id]) {
-              d.topics[d.activeTopic.id]!.completed = true;
-              d.activeTopic = null;
-            }
-          });
-        }
+        checkVoteResult();
       }
     }, 1000);
 
     return () => clearInterval(timer);
   }, [doc?.activeTopic?.timerStarted, doc?.activeTopic?.id]);
+
+  const getTopicVoteCount = (votes: Votes) => {
+    return Object.values(votes).filter((v) => v).length;
+  };
+
+  const formatTime = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
 
   const addTopic = () => {
     if (!newTopicTitle.trim()) return;
@@ -131,6 +121,16 @@ function App({ docUrl }: { docUrl: AutomergeUrl }) {
     });
   };
 
+  const startTimer = (topicId: string) => {
+    changeDoc((d) => {
+      d.activeTopic = {
+        id: topicId,
+        timerStarted: Date.now(),
+        votes: {},
+      };
+    });
+  };
+
   const checkVoteResult = () => {
     if (!doc?.activeTopic) return;
 
@@ -162,25 +162,20 @@ function App({ docUrl }: { docUrl: AutomergeUrl }) {
     }
   };
 
-  const startTimer = (topicId: string) => {
+  const updateTopicTitle = (topicId: string, newTitle: string) => {
     changeDoc((d) => {
-      d.activeTopic = {
-        id: topicId,
-        timerStarted: Date.now(),
-        votes: {},
-      };
+      if (d.topics[topicId]) {
+        updateText(d, ["topics", topicId, "title"], newTitle);
+      }
     });
   };
 
-  const getTopicVoteCount = (votes: Votes) => {
-    return Object.values(votes).filter((v) => v).length;
-  };
-
-  const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  const markTopicNotCompleted = (topicId: string) => {
+    changeDoc((d) => {
+      if (d.topics[topicId]) {
+        d.topics[topicId]!.completed = false;
+      }
+    });
   };
 
   const sortedTopics = doc?.topics
@@ -298,15 +293,7 @@ function App({ docUrl }: { docUrl: AutomergeUrl }) {
                         type="text"
                         value={topic.title}
                         onChange={(e) =>
-                          changeDoc((d) => {
-                            if (d.topics[topicId]) {
-                              updateText(
-                                d,
-                                ["topics", topicId, "title"],
-                                e.target.value
-                              );
-                            }
-                          })
+                          updateTopicTitle(topicId, e.target.value)
                         }
                         className={topic.completed ? "completed-text" : ""}
                       />
@@ -330,15 +317,7 @@ function App({ docUrl }: { docUrl: AutomergeUrl }) {
                       </button>
                     )}
                     {topic.completed && (
-                      <button
-                        onClick={() => {
-                          changeDoc((d) => {
-                            if (d.topics[topicId]) {
-                              d.topics[topicId]!.completed = false;
-                            }
-                          });
-                        }}
-                      >
+                      <button onClick={() => markTopicNotCompleted(topicId)}>
                         Rediscuss
                       </button>
                     )}
@@ -363,4 +342,8 @@ function App({ docUrl }: { docUrl: AutomergeUrl }) {
   );
 }
 
-export default App;
+export default function AppWrapper({ docUrl }: { docUrl: AutomergeUrl }) {
+  const [doc, changeDoc] = useDocument<LeanCoffee>(docUrl);
+
+  return <App doc={doc} changeDoc={changeDoc} />;
+}
