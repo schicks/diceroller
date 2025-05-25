@@ -39,7 +39,7 @@ jobs:
           node-version: 20
           cache: "pnpm"
       - name: Install dependencies
-        run: pnpm
+        run: pnpm i
       - name: Build
         run: pnpm build
       - name: Setup Pages
