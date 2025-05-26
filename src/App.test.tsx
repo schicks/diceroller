@@ -1,9 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { App, type LeanCoffee } from "./App";
+import { App } from "./App";
+import { type LeanCoffee } from "./hooks/useSharedState";
 
 describe("App", () => {
-  const mockChangeDoc = vi.fn();
+  const mockActions = {
+    addTopic: vi.fn(),
+    toggleVote: vi.fn(),
+    startTimer: vi.fn(),
+    updateTopicTitle: vi.fn(),
+    markTopicNotCompleted: vi.fn(),
+    markTopicCompleted: vi.fn(),
+    clearActiveTopic: vi.fn(),
+  };
   const FIXED_TIME = 1748196818665;
   const userId = "user1";
   const baseDoc: LeanCoffee = {
@@ -15,7 +24,7 @@ describe("App", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(FIXED_TIME);
-    mockChangeDoc.mockClear();
+    Object.values(mockActions).forEach((mock) => mock.mockClear());
   });
 
   afterEach(() => {
@@ -29,46 +38,33 @@ describe("App", () => {
 
   describe("Adding topics", () => {
     it("adds a new topic when typing and clicking Add", () => {
-      render(<App doc={baseDoc} changeDoc={mockChangeDoc} userId={userId} />);
-
-      mockChangeDoc.mockClear(); // Clear initial heartbeat call
+      render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
 
       const input = screen.getByPlaceholderText("Add a new topic...");
       fireEvent.change(input, { target: { value: "New Topic" } });
       fireEvent.click(screen.getByText("Add"));
 
-      // Get the last call to mockChangeDoc (should be the addTopic call)
-      expect(mockChangeDoc).toHaveBeenCalled();
-      const lastCall =
-        mockChangeDoc.mock.calls[mockChangeDoc.mock.calls.length - 1][0];
-      const testDoc = cloneDoc(baseDoc);
-      lastCall(testDoc);
-
-      // Verify a topic was added with the correct title
-      const topicId = Object.keys(testDoc.topics)[0];
-      expect(testDoc.topics[topicId]?.title).toBe("New Topic");
+      expect(mockActions.addTopic).toHaveBeenCalledWith("New Topic");
     });
 
     it("adds a new topic when pressing Enter", () => {
-      render(<App doc={baseDoc} changeDoc={mockChangeDoc} userId={userId} />);
+      render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
 
       const input = screen.getByPlaceholderText("Add a new topic...");
       fireEvent.change(input, { target: { value: "New Topic" } });
       fireEvent.keyDown(input, { key: "Enter" });
 
-      expect(mockChangeDoc).toHaveBeenCalled();
+      expect(mockActions.addTopic).toHaveBeenCalledWith("New Topic");
     });
 
     it("does not add empty topics", () => {
-      render(<App doc={baseDoc} changeDoc={mockChangeDoc} userId={userId} />);
-
-      mockChangeDoc.mockClear(); // Clear initial heartbeat call
+      render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
 
       const input = screen.getByPlaceholderText("Add a new topic...");
       fireEvent.change(input, { target: { value: "   " } });
       fireEvent.click(screen.getByText("Add"));
 
-      expect(mockChangeDoc).not.toHaveBeenCalled();
+      expect(mockActions.addTopic).not.toHaveBeenCalled();
     });
   });
 
@@ -91,42 +87,24 @@ describe("App", () => {
     };
 
     it("toggles vote on a topic when clicking vote button", () => {
-      render(
-        <App doc={docWithTopics} changeDoc={mockChangeDoc} userId={userId} />
-      );
-
-      mockChangeDoc.mockClear(); // Clear initial heartbeat call
+      render(<App doc={docWithTopics} actions={mockActions} userId={userId} />);
 
       // Find the vote button for the first topic
       const voteButtons = screen.getAllByText("0");
       fireEvent.click(voteButtons[0]);
 
-      expect(mockChangeDoc).toHaveBeenCalled();
-      const changeDocCall = mockChangeDoc.mock.calls[0][0];
-      const testDoc = cloneDoc(docWithTopics);
-      changeDocCall(testDoc);
-
-      expect(testDoc.topics["topic1"]?.votes["user1"]).toBe(true);
+      expect(mockActions.toggleVote).toHaveBeenCalledWith("topic1");
     });
 
     it("removes vote when clicking again", () => {
-      render(
-        <App doc={docWithTopics} changeDoc={mockChangeDoc} userId={userId} />
-      );
-
-      mockChangeDoc.mockClear(); // Clear initial heartbeat call
+      render(<App doc={docWithTopics} actions={mockActions} userId={userId} />);
 
       // Find the row containing "Second Topic" and then find its vote button
       const row = screen.getByText("Second Topic").closest("tr");
       const voteButton = row!.querySelector("button");
       fireEvent.click(voteButton!);
 
-      expect(mockChangeDoc).toHaveBeenCalled();
-      const changeDocCall = mockChangeDoc.mock.calls[0][0];
-      const testDoc = cloneDoc(docWithTopics);
-      changeDocCall(testDoc);
-
-      expect(testDoc.topics["topic2"]?.votes["user1"]).toBeUndefined();
+      expect(mockActions.toggleVote).toHaveBeenCalledWith("topic2");
     });
   });
 
@@ -151,7 +129,7 @@ describe("App", () => {
       render(
         <App
           doc={docWithActiveDiscussion}
-          changeDoc={mockChangeDoc}
+          actions={mockActions}
           userId={userId}
         />
       );
@@ -166,7 +144,7 @@ describe("App", () => {
       render(
         <App
           doc={docWithActiveDiscussion}
-          changeDoc={mockChangeDoc}
+          actions={mockActions}
           userId={userId}
         />
       );
@@ -188,90 +166,50 @@ describe("App", () => {
       render(
         <App
           doc={docWithActiveDiscussion}
-          changeDoc={mockChangeDoc}
+          actions={mockActions}
           userId={userId}
         />
       );
 
-      mockChangeDoc.mockClear(); // Clear initial heartbeat call
-
       fireEvent.click(screen.getByText("Continue (0)"));
-      expect(mockChangeDoc).toHaveBeenCalled();
-
-      const changeDocCall = mockChangeDoc.mock.calls[0][0];
-      const testDoc = cloneDoc(docWithActiveDiscussion);
-      changeDocCall(testDoc);
-
-      expect(testDoc.activeTopic?.votes["user1"]).toBe(true);
+      expect(mockActions.toggleVote).toHaveBeenCalledWith("topic1", true, true);
     });
 
     it("marks topic as completed when time runs out and stop votes win", () => {
-      if (!docWithActiveDiscussion.activeTopic)
-        throw new Error("activeTopic should not be null");
-
       const docWithVotes: LeanCoffee = {
         ...docWithActiveDiscussion,
         activeTopic: {
-          ...docWithActiveDiscussion.activeTopic,
+          ...docWithActiveDiscussion.activeTopic!,
           votes: { user1: false, user2: false, user3: true },
         },
       };
 
-      render(
-        <App doc={docWithVotes} changeDoc={mockChangeDoc} userId={userId} />
-      );
-
-      mockChangeDoc.mockClear(); // Clear initial heartbeat call
+      render(<App doc={docWithVotes} actions={mockActions} userId={userId} />);
 
       act(() => {
         vi.advanceTimersByTime(5 * 60 * 1000); // Advance to end of timer
       });
 
-      // Get the last call to mockChangeDoc (should be the checkVoteResult call)
-      expect(mockChangeDoc).toHaveBeenCalled();
-      const lastCall =
-        mockChangeDoc.mock.calls[mockChangeDoc.mock.calls.length - 1][0];
-      const testDoc = cloneDoc(docWithVotes);
-      lastCall(testDoc);
-
-      expect(testDoc.topics["topic1"]?.completed).toBe(true);
-      expect(testDoc.activeTopic).toBeNull();
+      expect(mockActions.markTopicCompleted).toHaveBeenCalledWith("topic1");
+      expect(mockActions.clearActiveTopic).toHaveBeenCalled();
     });
 
     it("restarts timer when continue votes win", () => {
-      if (!docWithActiveDiscussion.activeTopic)
-        throw new Error("activeTopic should not be null");
-
       const docWithVotes: LeanCoffee = {
         ...docWithActiveDiscussion,
         activeTopic: {
-          ...docWithActiveDiscussion.activeTopic,
+          ...docWithActiveDiscussion.activeTopic!,
           votes: { user1: true, user2: true, user3: false },
         },
       };
 
-      render(
-        <App doc={docWithVotes} changeDoc={mockChangeDoc} userId={userId} />
-      );
-
-      mockChangeDoc.mockClear(); // Clear initial heartbeat call
+      render(<App doc={docWithVotes} actions={mockActions} userId={userId} />);
 
       act(() => {
         vi.advanceTimersByTime(5 * 60 * 1000); // Advance to end of timer
       });
 
-      // Get the last call to mockChangeDoc (should be the checkVoteResult call)
-      expect(mockChangeDoc).toHaveBeenCalled();
-      const lastCall =
-        mockChangeDoc.mock.calls[mockChangeDoc.mock.calls.length - 1][0];
-      const testDoc = cloneDoc(docWithVotes);
-      lastCall(testDoc);
-
-      // After the timer runs out, we should have a new timer start time
-      expect(testDoc.activeTopic?.timerStarted).toBe(
-        FIXED_TIME + 5 * 60 * 1000
-      );
-      expect(Object.keys(testDoc.activeTopic?.votes || {}).length).toBe(0);
+      expect(mockActions.startTimer).toHaveBeenCalledWith("topic1");
     });
   });
 
@@ -293,7 +231,7 @@ describe("App", () => {
       render(
         <App
           doc={docWithCompletedTopic}
-          changeDoc={mockChangeDoc}
+          actions={mockActions}
           userId={userId}
         />
       );
@@ -305,7 +243,7 @@ describe("App", () => {
       render(
         <App
           doc={docWithCompletedTopic}
-          changeDoc={mockChangeDoc}
+          actions={mockActions}
           userId={userId}
         />
       );
@@ -319,56 +257,19 @@ describe("App", () => {
       render(
         <App
           doc={docWithCompletedTopic}
-          changeDoc={mockChangeDoc}
+          actions={mockActions}
           userId={userId}
         />
       );
 
-      mockChangeDoc.mockClear(); // Clear initial heartbeat call
-
       fireEvent.click(screen.getByLabelText("Show Completed Topics"));
       fireEvent.click(screen.getByText("Rediscuss"));
 
-      expect(mockChangeDoc).toHaveBeenCalled();
-      const changeDocCall = mockChangeDoc.mock.calls[0][0];
-      const testDoc = cloneDoc(docWithCompletedTopic);
-      changeDocCall(testDoc);
-
-      expect(testDoc.topics["topic1"]?.completed).toBe(false);
+      expect(mockActions.markTopicNotCompleted).toHaveBeenCalledWith("topic1");
     });
   });
 
   describe("Heartbeats", () => {
-    it("sends initial heartbeat on mount", () => {
-      render(<App doc={baseDoc} changeDoc={mockChangeDoc} userId={userId} />);
-
-      expect(mockChangeDoc).toHaveBeenCalled();
-      const changeDocCall = mockChangeDoc.mock.calls[0][0];
-      const testDoc = { ...baseDoc };
-      changeDocCall(testDoc);
-
-      expect(testDoc.heartbeats["user1"]).toBe(FIXED_TIME);
-    });
-
-    it("sends heartbeat periodically", () => {
-      render(<App doc={baseDoc} changeDoc={mockChangeDoc} userId={userId} />);
-
-      // Clear initial heartbeat call
-      mockChangeDoc.mockClear();
-
-      // Advance time by heartbeat interval
-      act(() => {
-        vi.advanceTimersByTime(5 * 60 * 1000);
-      });
-
-      expect(mockChangeDoc).toHaveBeenCalled();
-      const changeDocCall = mockChangeDoc.mock.calls[0][0];
-      const testDoc = { ...baseDoc };
-      changeDocCall(testDoc);
-
-      expect(testDoc.heartbeats["user1"]).toBe(FIXED_TIME + 5 * 60 * 1000);
-    });
-
     it("shows correct number of online users", () => {
       const docWithHeartbeats: LeanCoffee = {
         ...baseDoc,
@@ -380,11 +281,7 @@ describe("App", () => {
       };
 
       render(
-        <App
-          doc={docWithHeartbeats}
-          changeDoc={mockChangeDoc}
-          userId={userId}
-        />
+        <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
       );
 
       expect(screen.getByText("2 users online")).toBeInTheDocument();
@@ -401,11 +298,7 @@ describe("App", () => {
       };
 
       render(
-        <App
-          doc={docWithHeartbeats}
-          changeDoc={mockChangeDoc}
-          userId={userId}
-        />
+        <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
       );
 
       // Should show circles for john.doe and jane_smith (bob.wilson is offline)
@@ -430,11 +323,7 @@ describe("App", () => {
       };
 
       const { rerender } = render(
-        <App
-          doc={docWithHeartbeats}
-          changeDoc={mockChangeDoc}
-          userId={userId}
-        />
+        <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
       );
 
       // Get initial colors
@@ -449,11 +338,7 @@ describe("App", () => {
 
       // Rerender and check colors remain the same
       rerender(
-        <App
-          doc={docWithHeartbeats}
-          changeDoc={mockChangeDoc}
-          userId={userId}
-        />
+        <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
       );
 
       const newJohnCircle = screen

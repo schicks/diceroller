@@ -1,8 +1,14 @@
 import automergeLogo from "/automerge.png";
 import "@picocss/pico/css/pico.min.css";
 import "./App.css";
-import { useDocument, updateText, type AutomergeUrl } from "@automerge/react";
+import { type AutomergeUrl } from "@automerge/react";
 import { useState, useEffect } from "react";
+import {
+  SharedStateActions,
+  useSharedState,
+  type LeanCoffee,
+  type Votes,
+} from "./hooks/useSharedState";
 
 /**
  * Get initials from a username
@@ -43,73 +49,20 @@ const generateUserColor = (username: string): string => {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
-/**
- * Votes is a map of user ids to a boolean value.
- * true is an upvote, false is a downvote.
- * Remove the user id to remove the vote. When downvotes are not relevant, a downvote can be treated as removing a vote.
- */
-type Votes = { [userId in string]?: boolean };
-
-export type LeanCoffee = {
-  activeTopic: null | {
-    id: string;
-    timerStarted: number;
-    votes: Votes;
-  };
-  topics: {
-    [topicId in string]?: {
-      title: string;
-      author: string; // user id
-      votes: Votes;
-      completed?: boolean;
-    };
-  };
-  heartbeats: {
-    [userId: string]: number; // timestamp of last heartbeat
-  };
-};
-
 const TIMER_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
-const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 const ONLINE_THRESHOLD = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 interface AppProps {
   doc: LeanCoffee | undefined;
-  changeDoc: (fn: (doc: LeanCoffee) => void) => void;
   userId: string;
+  actions: SharedStateActions;
 }
 
-export function App({ doc, changeDoc, userId }: AppProps) {
+export function App({ doc, userId, actions }: AppProps) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isFlashing, setIsFlashing] = useState(false);
-
-  // Initialize heartbeats if not present and set up heartbeat interval
-  useEffect(() => {
-    if (!doc) return;
-
-    // Initialize heartbeats object if it doesn't exist
-    if (!doc.heartbeats) {
-      changeDoc((d) => {
-        d.heartbeats = {};
-      });
-    }
-
-    // Send initial heartbeat
-    changeDoc((d) => {
-      d.heartbeats[userId] = Date.now();
-    });
-
-    // Set up interval for heartbeats
-    const interval = setInterval(() => {
-      changeDoc((d) => {
-        d.heartbeats[userId] = Date.now();
-      });
-    }, HEARTBEAT_INTERVAL);
-
-    return () => clearInterval(interval);
-  }, [doc, userId]);
 
   // Function to check if a user is online
   const isUserOnline = (lastHeartbeat: number) => {
@@ -163,57 +116,8 @@ export function App({ doc, changeDoc, userId }: AppProps) {
 
   const addTopic = () => {
     if (!newTopicTitle.trim()) return;
-
-    changeDoc((d) => {
-      const topicId = crypto.randomUUID();
-      if (!d.topics) d.topics = {};
-      d.topics[topicId] = {
-        title: newTopicTitle,
-        author: userId,
-        votes: {},
-      };
-    });
+    actions.addTopic(newTopicTitle);
     setNewTopicTitle("");
-  };
-
-  const toggleVote = (
-    topicId: string,
-    isTimerVote = false,
-    voteValue?: boolean
-  ) => {
-    changeDoc((d) => {
-      const votes = isTimerVote
-        ? d.activeTopic?.votes
-        : d.topics[topicId]?.votes;
-      if (!votes) return;
-
-      // For regular topic votes (not timer votes), just toggle between voted and not voted
-      if (!isTimerVote) {
-        if (votes[userId]) {
-          delete votes[userId];
-        } else {
-          votes[userId] = true;
-        }
-        return;
-      }
-
-      // For timer votes, handle the continue/stop voting
-      if (votes[userId] === voteValue) {
-        delete votes[userId];
-      } else {
-        votes[userId] = voteValue!;
-      }
-    });
-  };
-
-  const startTimer = (topicId: string) => {
-    changeDoc((d) => {
-      d.activeTopic = {
-        id: topicId,
-        timerStarted: Date.now(),
-        votes: {},
-      };
-    });
   };
 
   const checkVoteResult = () => {
@@ -230,37 +134,14 @@ export function App({ doc, changeDoc, userId }: AppProps) {
       setIsFlashing(true);
       setTimeout(() => setIsFlashing(false), 1000);
       // Restart timer
-      changeDoc((d) => {
-        if (d.activeTopic) {
-          d.activeTopic.timerStarted = Date.now();
-          d.activeTopic.votes = {};
-        }
-      });
+      actions.startTimer(doc.activeTopic.id);
     } else {
       // Mark topic as completed and clear active topic
-      changeDoc((d) => {
-        if (d.activeTopic && d.topics[d.activeTopic.id]) {
-          d.topics[d.activeTopic.id]!.completed = true;
-          d.activeTopic = null;
-        }
-      });
+      if (doc.activeTopic) {
+        actions.markTopicCompleted(doc.activeTopic.id);
+        actions.clearActiveTopic();
+      }
     }
-  };
-
-  const updateTopicTitle = (topicId: string, newTitle: string) => {
-    changeDoc((d) => {
-      if (d.topics[topicId]) {
-        updateText(d, ["topics", topicId, "title"], newTitle);
-      }
-    });
-  };
-
-  const markTopicNotCompleted = (topicId: string) => {
-    changeDoc((d) => {
-      if (d.topics[topicId]) {
-        d.topics[topicId]!.completed = false;
-      }
-    });
   };
 
   const sortedTopics = doc?.topics
@@ -324,7 +205,9 @@ export function App({ doc, changeDoc, userId }: AppProps) {
             </div>
             <div className="vote-buttons">
               <button
-                onClick={() => toggleVote(doc!.activeTopic!.id, true, true)}
+                onClick={() =>
+                  actions.toggleVote(doc!.activeTopic!.id, true, true)
+                }
                 className={
                   doc?.activeTopic?.votes[userId] === true ? "voted" : ""
                 }
@@ -332,7 +215,9 @@ export function App({ doc, changeDoc, userId }: AppProps) {
                 Continue ({continueVotes})
               </button>
               <button
-                onClick={() => toggleVote(doc!.activeTopic!.id, true, false)}
+                onClick={() =>
+                  actions.toggleVote(doc!.activeTopic!.id, true, false)
+                }
                 className={
                   doc?.activeTopic?.votes[userId] === false ? "voted" : ""
                 }
@@ -349,7 +234,7 @@ export function App({ doc, changeDoc, userId }: AppProps) {
             <h2>No Active Topic</h2>
             {sortedTopics.length > 0 && (
               <button
-                onClick={() => startTimer(sortedTopics[0][0])}
+                onClick={() => actions.startTimer(sortedTopics[0][0])}
                 disabled={!hasUndiscussedTopics}
               >
                 Start Discussion
@@ -396,7 +281,7 @@ export function App({ doc, changeDoc, userId }: AppProps) {
                         type="text"
                         value={topic.title}
                         onChange={(e) =>
-                          updateTopicTitle(topicId, e.target.value)
+                          actions.updateTopicTitle(topicId, e.target.value)
                         }
                         className={topic.completed ? "completed-text" : ""}
                       />
@@ -406,7 +291,7 @@ export function App({ doc, changeDoc, userId }: AppProps) {
                   </td>
                   <td>
                     <button
-                      onClick={() => toggleVote(topicId)}
+                      onClick={() => actions.toggleVote(topicId)}
                       className={topic.votes[userId] ? "voted" : ""}
                       disabled={topic.completed}
                     >
@@ -415,12 +300,14 @@ export function App({ doc, changeDoc, userId }: AppProps) {
                   </td>
                   <td>
                     {!doc?.activeTopic && !topic.completed && (
-                      <button onClick={() => startTimer(topicId)}>
+                      <button onClick={() => actions.startTimer(topicId)}>
                         Discuss
                       </button>
                     )}
                     {topic.completed && (
-                      <button onClick={() => markTopicNotCompleted(topicId)}>
+                      <button
+                        onClick={() => actions.markTopicNotCompleted(topicId)}
+                      >
                         Rediscuss
                       </button>
                     )}
@@ -451,7 +338,7 @@ interface AppWrapperProps {
 }
 
 export default function AppWrapper({ docUrl, userId }: AppWrapperProps) {
-  const [doc, changeDoc] = useDocument<LeanCoffee>(docUrl);
+  const [doc, actions] = useSharedState(docUrl, userId);
 
-  return <App doc={doc} changeDoc={changeDoc} userId={userId} />;
+  return <App doc={doc} actions={actions} userId={userId} />;
 }
