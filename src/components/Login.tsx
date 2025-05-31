@@ -40,7 +40,7 @@ export function Login({ onLogin }: LoginProps) {
 
   return (
     <div className="login-container">
-      <h1>Welcome to Lean Coffee</h1>
+      <h1>Roll the Dice</h1>
       <form onSubmit={handleSubmit}>
         <div className="username-input">
           {isEditing ? (
