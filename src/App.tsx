@@ -53,11 +53,10 @@ const ONLINE_THRESHOLD = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 interface AppProps {
   doc: Rolls | undefined;
-  _userId: string;
   actions: SharedStateActions;
 }
 
-export function App({ doc, _userId, actions }: AppProps) {
+export function App({ doc, actions }: AppProps) {
   const [diceExpression, setDiceExpression] = useState("");
   const [description, setDescription] = useState("");
 
@@ -184,5 +183,5 @@ interface AppWrapperProps {
 export default function AppWrapper({ docUrl, userId }: AppWrapperProps) {
   const [doc, actions] = useSharedState(docUrl, userId);
 
-  return <App doc={doc} actions={actions} _userId={userId} />;
+  return <App doc={doc} actions={actions} />;
 }

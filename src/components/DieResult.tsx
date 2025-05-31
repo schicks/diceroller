@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface DieResultProps {
     sides: number;
     value: number;
@@ -78,12 +76,16 @@ export function DieResult({ sides, value, size = 32 }: DieResultProps) {
     const digitCount = value.toString().length;
     const fontSize = size / (1.8 + (digitCount - 1) * 0.3); // Reduce size for more digits
 
+    const dieText = `d${sides}(${value})`;
+
     return (
         <svg
             width={size}
             height={size}
             viewBox={viewBox}
             style={{ display: 'inline-block', verticalAlign: 'middle' }}
+            role="img"
+            aria-label={`Die value: ${dieText}`}
         >
             <path
                 d={path}
@@ -99,6 +101,7 @@ export function DieResult({ sides, value, size = 32 }: DieResultProps) {
                 fontSize={fontSize}
                 fill="currentColor"
                 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                role="text"
             >
                 {value}
             </text>

@@ -9,7 +9,6 @@ describe("App", () => {
     roll: vi.fn(),
   };
   const FIXED_TIME = 1748196818665;
-  const userId = "user1";
   const baseDoc: Rolls = {
     history: [],
     heartbeats: {},
@@ -28,7 +27,7 @@ describe("App", () => {
 
   describe("Rolling dice", () => {
     it("calls roll action when form is submitted", () => {
-      render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
+      render(<App doc={baseDoc} actions={mockActions} />);
 
       const expressionInput = screen.getByPlaceholderText(
         "Enter dice expression (e.g., 2d6+3)"
@@ -47,7 +46,7 @@ describe("App", () => {
     });
 
     it("does not call roll action if expression is empty", () => {
-      render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
+      render(<App doc={baseDoc} actions={mockActions} />);
 
       const descriptionInput =
         screen.getByPlaceholderText("Optional description");
@@ -62,7 +61,7 @@ describe("App", () => {
     });
 
     it("clears input fields after rolling", () => {
-      render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
+      render(<App doc={baseDoc} actions={mockActions} />);
 
       const expressionInput = screen.getByPlaceholderText(
         "Enter dice expression (e.g., 2d6+3)"
@@ -112,21 +111,27 @@ describe("App", () => {
 
     it("displays roll history correctly", () => {
       render(
-        <App doc={docWithHistory} actions={mockActions} userId={userId} />
+        <App doc={docWithHistory} actions={mockActions} />
       );
 
+      // Check text content
       expect(screen.getByText("Damage roll")).toBeInTheDocument();
       expect(screen.getByText("Healing potion")).toBeInTheDocument();
       expect(screen.getByText("2d6")).toBeInTheDocument();
-      expect(screen.getByText("7")).toBeInTheDocument(); // Result of 2d6
-      expect(screen.getByText("d6(3), d6(4)")).toBeInTheDocument(); // Details of 2d6
       expect(screen.getByText("1d4+1")).toBeInTheDocument();
-      expect(screen.getByText("3")).toBeInTheDocument(); // Result of 1d4+1
-      expect(screen.getByText("d4(2)")).toBeInTheDocument(); // Details of 1d4+1
+
+      // Check results
+      expect(screen.getByRole("cell", { name: "7" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "3" })).toBeInTheDocument();
+
+      // Check that the dice details are accessible somewhere in the document
+      expect(screen.getAllByLabelText(/d6\(3\)/)).not.toHaveLength(0);
+      expect(screen.getAllByLabelText(/d6\(4\)/)).not.toHaveLength(0);
+      expect(screen.getAllByLabelText(/d4\(2\)/)).not.toHaveLength(0);
     });
 
     it("shows 'No rolls yet' message when history is empty", () => {
-      render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
+      render(<App doc={baseDoc} actions={mockActions} />);
       expect(
         screen.getByText("No rolls yet. Make your first roll!")
       ).toBeInTheDocument();
@@ -134,7 +139,7 @@ describe("App", () => {
 
     it("displays user initials for each roll entry", () => {
       render(
-        <App doc={docWithHistory} actions={mockActions} userId={userId} />
+        <App doc={docWithHistory} actions={mockActions} />
       );
       // getUserInitials("user1") -> "U1"
       // getUserInitials("user2") -> "U2"
@@ -157,7 +162,7 @@ describe("App", () => {
       };
 
       render(
-        <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
+        <App doc={docWithHeartbeats} actions={mockActions} />
       );
 
       expect(screen.getByText("2 users online")).toBeInTheDocument();
@@ -173,7 +178,7 @@ describe("App", () => {
       };
 
       render(
-        <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
+        <App doc={docWithHeartbeats} actions={mockActions} />
       );
 
       const johnCircle = screen.getByText("JD").closest(".user-circle");
@@ -197,7 +202,7 @@ describe("App", () => {
       };
 
       const { rerender } = render(
-        <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
+        <App doc={docWithHeartbeats} actions={mockActions} />
       );
 
       const johnCircle = screen.getByText("JD")
@@ -208,7 +213,7 @@ describe("App", () => {
       const janeColor = janeCircle.style.backgroundColor;
 
       rerender(
-        <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
+        <App doc={docWithHeartbeats} actions={mockActions} />
       );
 
       const newJohnCircle = screen.getByText("JD")

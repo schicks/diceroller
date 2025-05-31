@@ -11,7 +11,15 @@ describe('RollDetails', () => {
         ]];
 
         render(<RollDetailsImpl dice={dice} />);
-        expect(screen.getByText('d6(3)+d6(4)')).toBeInTheDocument();
+
+        // Check the accessible text
+        expect(screen.getByLabelText('d6(3)+d6(4)')).toBeInTheDocument();
+
+        // Also verify the visual representation
+        const diceValues = screen.getAllByRole('text');
+        expect(diceValues).toHaveLength(2);
+        expect(diceValues[0]).toHaveTextContent('3');
+        expect(diceValues[1]).toHaveTextContent('4');
     });
 
     it('displays multiple dice groups with + between them', () => {
@@ -21,7 +29,15 @@ describe('RollDetails', () => {
         ];
 
         render(<RollDetailsImpl dice={dice} />);
-        expect(screen.getByText('d8(5) + d4(2)')).toBeInTheDocument();
+
+        // Check the accessible text
+        expect(screen.getByLabelText('d8(5) + d4(2)')).toBeInTheDocument();
+
+        // Also verify the visual representation
+        const diceValues = screen.getAllByRole('text');
+        expect(diceValues).toHaveLength(2);
+        expect(diceValues[0]).toHaveTextContent('5');
+        expect(diceValues[1]).toHaveTextContent('2');
     });
 
     it('displays advantage/disadvantage rolls side by side', () => {
@@ -31,7 +47,17 @@ describe('RollDetails', () => {
         ];
 
         render(<RollDetailsImpl dice={dice} />);
-        expect(screen.getByText('d8(1)+d4(3), d8(3)+d4(4)')).toBeInTheDocument();
+
+        // Check the accessible text
+        expect(screen.getByLabelText('d8(1)+d4(3), d8(3)+d4(4)')).toBeInTheDocument();
+
+        // Also verify the visual representation
+        const diceValues = screen.getAllByRole('text');
+        expect(diceValues).toHaveLength(4);
+        expect(diceValues[0]).toHaveTextContent('1');
+        expect(diceValues[1]).toHaveTextContent('3');
+        expect(diceValues[2]).toHaveTextContent('3');
+        expect(diceValues[3]).toHaveTextContent('4');
     });
 
     it('handles complex expressions correctly', () => {
@@ -42,6 +68,16 @@ describe('RollDetails', () => {
         ];
 
         render(<RollDetailsImpl dice={dice} />);
-        expect(screen.getByText('d20(15) + d4(2) + d6(3)+d6(4)')).toBeInTheDocument();
+
+        // Check the accessible text
+        expect(screen.getByLabelText('d20(15) + d4(2) + d6(3)+d6(4)')).toBeInTheDocument();
+
+        // Also verify the visual representation
+        const diceValues = screen.getAllByRole('text');
+        expect(diceValues).toHaveLength(4);
+        expect(diceValues[0]).toHaveTextContent('15');
+        expect(diceValues[1]).toHaveTextContent('2');
+        expect(diceValues[2]).toHaveTextContent('3');
+        expect(diceValues[3]).toHaveTextContent('4');
     });
 }); 

@@ -1,5 +1,5 @@
 import type { Roll, DieResult } from './state.types'
-import { parseDiceExpression, AstNode, DiceRoll as AstDiceRoll, NumberNode, BinaryOp, GroupOp, Operator, KeepModifier } from './roll-parser'
+import { parseDiceExpression, AstNode, DiceRoll as AstDiceRoll, Operator, KeepModifier } from './roll-parser'
 
 // Helper to evaluate an AST node to a numerical result and collected dice rolls
 const evaluateAstNode = (node: AstNode, random: () => number): { result: number, dice: DieResult[][] } => {
