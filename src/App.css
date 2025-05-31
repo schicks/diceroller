@@ -1,17 +1,178 @@
 #root {
-  max-width: 1280px;
-  max-height: 800px;
-  margin: 0 auto;
-  padding: 2rem;
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
 }
 
 header {
-  text-align: center;
-  margin-bottom: 2rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+#automerge-logo {
+  height: 2em;
+  padding: 0.25em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+
+#automerge-logo:hover {
+  filter: drop-shadow(0 0 1em var(--primary-color));
+}
+
+.online-users {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--text-secondary);
+}
+
+.online-users-circles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.online-users-count {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* Important for scroll to work properly */
+}
+
+.roll-history {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.roll-history h2 {
+  position: sticky;
+  top: 0;
+  background-color: var(--background-color);
+  padding: 0.5rem 0;
+  margin: 0 0 1rem 0;
+  z-index: 1;
+  color: #1a1a1a;
+}
+
+.history-table-container {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0;
+  background-color: var(--surface-color);
+  color: #000000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th,
+td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--surface-color);
+  color: #000000;
+}
+
+th {
+  background-color: var(--background-color);
+  color: #000000;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+tr:hover td {
+  background-color: var(--background-color);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.roll-inputs {
+  width: 100%;
+  padding: 1rem;
+  background-color: var(--surface-color);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.roll-inputs-container {
+  display: flex;
+  gap: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.roll-inputs-container input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.roll-inputs-container input:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -1px;
+}
+
+.roll-inputs-container button {
+  min-width: 100px;
 }
 
 footer {
@@ -20,17 +181,6 @@ footer {
 
 #task-list {
   width: 100%;
-}
-
-#automerge-logo {
-  height: 3em;
-  padding: 0.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-
-#automerge-logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
 }
 
 .task {
@@ -87,32 +237,6 @@ footer {
 
 .add-topic input {
   flex: 1;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 2rem 0;
-}
-
-th, td {
-  padding: 1rem;
-  text-align: left;
-  border-bottom: 1px solid #ddd;
-}
-
-th {
-  background-color: #f5f5f5;
-  font-weight: bold;
-}
-
-tr.completed {
-  opacity: 0.7;
-}
-
-.completed-text,
-input.completed-text {
-  text-decoration: line-through;
 }
 
 button:disabled {
@@ -173,35 +297,26 @@ table button.voted:hover {
 
 /* Flash animation for timer */
 @keyframes flash {
-  0% { background-color: #f5f5f5; }
-  50% { background-color: #ffeb3b; }
-  100% { background-color: #f5f5f5; }
+  0% {
+    background-color: #f5f5f5;
+  }
+
+  50% {
+    background-color: #ffeb3b;
+  }
+
+  100% {
+    background-color: #f5f5f5;
+  }
 }
 
 .timer.flash {
   animation: flash 1s ease-in-out;
 }
 
-.online-users {
-  font-size: 0.9rem;
-  color: #666;
-  margin-top: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.online-users-circles {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
 .user-circle {
-  width: 2rem;
-  height: 2rem;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -209,54 +324,29 @@ table button.voted:hover {
   font-size: 0.8rem;
   font-weight: 600;
   color: white;
-  cursor: default;
-  transition: transform 0.2s ease;
-  user-select: none;
   position: relative;
-}
-
-.user-circle:hover {
-  transform: scale(1.1);
+  cursor: pointer;
 }
 
 .user-tooltip {
   position: absolute;
-  top: -2rem;
+  bottom: 100%;
   left: 50%;
-  transform: translateX(-50%) translateY(-0.5rem);
-  background-color: #2d3748;
-  color: white;
-  padding: 0.3rem 0.6rem;
-  border-radius: 0.3rem;
-  font-size: 0.75rem;
+  transform: translateX(-50%);
+  padding: 0.5rem;
+  background-color: var(--surface-color);
+  color: var(--text-color);
+  border-radius: 4px;
+  font-size: 0.8rem;
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
   transition: all 0.2s ease;
-  z-index: 9999;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Arrow for the tooltip */
-.user-tooltip::before {
-  content: '';
-  position: absolute;
-  bottom: -0.3rem;
-  left: 50%;
-  transform: translateX(-50%);
-  border-left: 0.3rem solid transparent;
-  border-right: 0.3rem solid transparent;
-  border-top: 0.3rem solid #2d3748;
-  border-bottom: none;
 }
 
 .user-circle:hover .user-tooltip {
   opacity: 1;
   visibility: visible;
-  transform: translateX(-50%) translateY(0);
-}
-
-.online-users-count {
-  font-size: 0.8rem;
-  opacity: 0.8;
+  bottom: calc(100% + 8px);
 }

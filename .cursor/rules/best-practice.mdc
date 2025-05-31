@@ -1,0 +1,11 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+take a TDD approach (red, green, refactor). First, write the signature of the implementation. Then write the first test, run it and watch it fail. Modify the function so it passes, then do any refactoring to keep the function readable.
+
+Make sure that logic is always in a testable unit function. If the logic depends on shared state or randomness, make a factory to allow for testing those things.
+
+
+Use pnpm as the package manager and script runner.

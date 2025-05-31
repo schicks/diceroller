@@ -1,48 +1,19 @@
-import { useDocument, updateText, type AutomergeUrl } from "@automerge/react";
+import { useDocument, type AutomergeUrl } from "@automerge/react";
 import { useEffect } from "react";
-
-export type Votes = { [userId in string]?: boolean };
-
-export type LeanCoffee = {
-  activeTopic: null | {
-    id: string;
-    timerStarted: number;
-    votes: Votes;
-  };
-  topics: {
-    [topicId in string]?: {
-      title: string;
-      author: string;
-      votes: Votes;
-      completed?: boolean;
-    };
-  };
-  heartbeats: {
-    [userId: string]: number;
-  };
-};
+import { Rolls } from "../state.types";
+import { roll as performRoll } from '../roll';
 
 const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 export interface SharedStateActions {
-  addTopic: (title: string) => void;
-  toggleVote: (
-    topicId: string,
-    isTimerVote?: boolean,
-    voteValue?: boolean
-  ) => void;
-  startTimer: (topicId: string) => void;
-  updateTopicTitle: (topicId: string, newTitle: string) => void;
-  markTopicNotCompleted: (topicId: string) => void;
-  markTopicCompleted: (topicId: string) => void;
-  clearActiveTopic: () => void;
+  roll: (expression: string, description: string) => void
 }
 
 export function useSharedState(
   docUrl: AutomergeUrl,
   userId: string
-): [LeanCoffee | undefined, SharedStateActions] {
-  const [doc, changeDoc] = useDocument<LeanCoffee>(docUrl);
+): [Rolls | undefined, SharedStateActions] {
+  const [doc, changeDoc] = useDocument<Rolls>(docUrl);
 
   // Handle heartbeats internally
   useEffect(() => {
@@ -67,80 +38,17 @@ export function useSharedState(
   }, [doc, userId, changeDoc]);
 
   const actions: SharedStateActions = {
-    addTopic: (title: string) => {
-      if (!title.trim()) return;
+    roll: (expression: string, description: string) => {
       changeDoc((d) => {
-        const topicId = crypto.randomUUID();
-        if (!d.topics) d.topics = {};
-        d.topics[topicId] = {
-          title,
-          author: userId,
-          votes: {},
-        };
-      });
-    },
-
-    toggleVote: (topicId: string, isTimerVote = false, voteValue?: boolean) => {
-      changeDoc((d) => {
-        const votes = isTimerVote
-          ? d.activeTopic?.votes
-          : d.topics[topicId]?.votes;
-        if (!votes) return;
-
-        if (!isTimerVote) {
-          if (votes[userId]) {
-            delete votes[userId];
-          } else {
-            votes[userId] = true;
-          }
-          return;
+        if (!d.history) {
+          d.history = [];
         }
-
-        if (votes[userId] === voteValue) {
-          delete votes[userId];
-        } else {
-          votes[userId] = voteValue!;
-        }
-      });
-    },
-
-    startTimer: (topicId: string) => {
-      changeDoc((d) => {
-        d.activeTopic = {
-          id: topicId,
-          timerStarted: Date.now(),
-          votes: {},
-        };
-      });
-    },
-
-    updateTopicTitle: (topicId: string, newTitle: string) => {
-      changeDoc((d) => {
-        if (d.topics[topicId]) {
-          updateText(d, ["topics", topicId, "title"], newTitle);
-        }
-      });
-    },
-
-    markTopicNotCompleted: (topicId: string) => {
-      changeDoc((d) => {
-        if (d.topics[topicId]) {
-          d.topics[topicId]!.completed = false;
-        }
-      });
-    },
-
-    markTopicCompleted: (topicId: string) => {
-      changeDoc((d) => {
-        if (d.topics[topicId]) {
-          d.topics[topicId]!.completed = true;
-        }
-      });
-    },
-
-    clearActiveTopic: () => {
-      changeDoc((d) => {
-        d.activeTopic = null;
+        const newRoll = performRoll(expression);
+        d.history.unshift({
+          roll: newRoll,
+          description,
+          userId,
+        });
       });
     },
   };

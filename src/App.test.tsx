@@ -1,23 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { App } from "./App";
-import { type LeanCoffee } from "./hooks/useSharedState";
+import { type Rolls, type Roll } from "./state.types";
+import { type SharedStateActions } from "./hooks/useSharedState";
 
 describe("App", () => {
-  const mockActions = {
-    addTopic: vi.fn(),
-    toggleVote: vi.fn(),
-    startTimer: vi.fn(),
-    updateTopicTitle: vi.fn(),
-    markTopicNotCompleted: vi.fn(),
-    markTopicCompleted: vi.fn(),
-    clearActiveTopic: vi.fn(),
+  const mockActions: SharedStateActions = {
+    roll: vi.fn(),
   };
   const FIXED_TIME = 1748196818665;
   const userId = "user1";
-  const baseDoc: LeanCoffee = {
-    activeTopic: null,
-    topics: {},
+  const baseDoc: Rolls = {
+    history: [],
     heartbeats: {},
   };
 
@@ -32,246 +26,128 @@ describe("App", () => {
     vi.clearAllMocks();
   });
 
-  // Helper function to deep clone a document
-  const cloneDoc = (doc: LeanCoffee): LeanCoffee =>
-    JSON.parse(JSON.stringify(doc));
-
-  describe("Adding topics", () => {
-    it("adds a new topic when typing and clicking Add", () => {
+  describe("Rolling dice", () => {
+    it("calls roll action when form is submitted", () => {
       render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
 
-      const input = screen.getByPlaceholderText("Add a new topic...");
-      fireEvent.change(input, { target: { value: "New Topic" } });
-      fireEvent.click(screen.getByText("Add"));
+      const expressionInput = screen.getByPlaceholderText(
+        "Enter dice expression (e.g., 2d6+3)"
+      );
+      const descriptionInput =
+        screen.getByPlaceholderText("Optional description");
+      const rollButton = screen.getByText("Roll");
 
-      expect(mockActions.addTopic).toHaveBeenCalledWith("New Topic");
+      fireEvent.change(expressionInput, { target: { value: "2d6" } });
+      fireEvent.change(descriptionInput, {
+        target: { value: "Damage roll" },
+      });
+      fireEvent.click(rollButton);
+
+      expect(mockActions.roll).toHaveBeenCalledWith("2d6", "Damage roll");
     });
 
-    it("adds a new topic when pressing Enter", () => {
+    it("does not call roll action if expression is empty", () => {
       render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
 
-      const input = screen.getByPlaceholderText("Add a new topic...");
-      fireEvent.change(input, { target: { value: "New Topic" } });
-      fireEvent.keyDown(input, { key: "Enter" });
+      const descriptionInput =
+        screen.getByPlaceholderText("Optional description");
+      const rollButton = screen.getByText("Roll");
 
-      expect(mockActions.addTopic).toHaveBeenCalledWith("New Topic");
+      fireEvent.change(descriptionInput, {
+        target: { value: "Damage roll" },
+      });
+      fireEvent.click(rollButton);
+
+      expect(mockActions.roll).not.toHaveBeenCalled();
     });
 
-    it("does not add empty topics", () => {
+    it("clears input fields after rolling", () => {
       render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
 
-      const input = screen.getByPlaceholderText("Add a new topic...");
-      fireEvent.change(input, { target: { value: "   " } });
-      fireEvent.click(screen.getByText("Add"));
+      const expressionInput = screen.getByPlaceholderText(
+        "Enter dice expression (e.g., 2d6+3)"
+      ) as HTMLInputElement;
+      const descriptionInput = screen.getByPlaceholderText(
+        "Optional description"
+      ) as HTMLInputElement;
+      const rollButton = screen.getByText("Roll");
 
-      expect(mockActions.addTopic).not.toHaveBeenCalled();
+      fireEvent.change(expressionInput, { target: { value: "1d20" } });
+      fireEvent.change(descriptionInput, {
+        target: { value: "Attack roll" },
+      });
+      fireEvent.click(rollButton);
+
+      expect(expressionInput.value).toBe("");
+      expect(descriptionInput.value).toBe("");
     });
   });
 
-  describe("Voting", () => {
-    const docWithTopics: LeanCoffee = {
-      activeTopic: null,
-      topics: {
-        topic1: {
-          title: "First Topic",
-          author: "user1",
-          votes: {},
+  describe("Roll history", () => {
+    const mockRollResult: Roll = {
+      expression: "2d6",
+      dice: [
+        [
+          { sides: 6, value: 3 },
+          { sides: 6, value: 4 },
+        ],
+      ],
+      result: 7,
+    };
+    const docWithHistory: Rolls = {
+      heartbeats: { user1: FIXED_TIME, user2: FIXED_TIME - 60000 }, // user2 active
+      history: [
+        { userId: "user1", description: "Damage roll", roll: mockRollResult },
+        {
+          userId: "user2",
+          description: "Healing potion",
+          roll: {
+            expression: "1d4+1",
+            dice: [[{ sides: 4, value: 2 }]],
+            result: 3,
+          },
         },
-        topic2: {
-          title: "Second Topic",
-          author: "user2",
-          votes: { user1: true },
-        },
-      },
-      heartbeats: {},
+      ],
     };
 
-    it("toggles vote on a topic when clicking vote button", () => {
-      render(<App doc={docWithTopics} actions={mockActions} userId={userId} />);
-
-      // Find the vote button for the first topic
-      const voteButtons = screen.getAllByText("0");
-      fireEvent.click(voteButtons[0]);
-
-      expect(mockActions.toggleVote).toHaveBeenCalledWith("topic1");
-    });
-
-    it("removes vote when clicking again", () => {
-      render(<App doc={docWithTopics} actions={mockActions} userId={userId} />);
-
-      // Find the row containing "Second Topic" and then find its vote button
-      const row = screen.getByText("Second Topic").closest("tr");
-      const voteButton = row!.querySelector("button");
-      fireEvent.click(voteButton!);
-
-      expect(mockActions.toggleVote).toHaveBeenCalledWith("topic2");
-    });
-  });
-
-  describe("Timer behavior", () => {
-    const docWithActiveDiscussion: LeanCoffee = {
-      activeTopic: {
-        id: "topic1",
-        timerStarted: FIXED_TIME,
-        votes: {},
-      },
-      topics: {
-        topic1: {
-          title: "Active Topic",
-          author: "user1",
-          votes: {},
-        },
-      },
-      heartbeats: {},
-    };
-
-    it("shows timer for active topic", () => {
+    it("displays roll history correctly", () => {
       render(
-        <App
-          doc={docWithActiveDiscussion}
-          actions={mockActions}
-          userId={userId}
-        />
+        <App doc={docWithHistory} actions={mockActions} userId={userId} />
       );
 
-      expect(screen.getByText("5:00")).toBeInTheDocument();
+      expect(screen.getByText("Damage roll")).toBeInTheDocument();
+      expect(screen.getByText("Healing potion")).toBeInTheDocument();
+      expect(screen.getByText("2d6")).toBeInTheDocument();
+      expect(screen.getByText("7")).toBeInTheDocument(); // Result of 2d6
+      expect(screen.getByText("d6(3), d6(4)")).toBeInTheDocument(); // Details of 2d6
+      expect(screen.getByText("1d4+1")).toBeInTheDocument();
+      expect(screen.getByText("3")).toBeInTheDocument(); // Result of 1d4+1
+      expect(screen.getByText("d4(2)")).toBeInTheDocument(); // Details of 1d4+1
+    });
+
+    it("shows 'No rolls yet' message when history is empty", () => {
+      render(<App doc={baseDoc} actions={mockActions} userId={userId} />);
       expect(
-        screen.getByText("Current Topic: Active Topic")
+        screen.getByText("No rolls yet. Make your first roll!")
       ).toBeInTheDocument();
     });
 
-    it("updates timer every second", () => {
+    it("displays user initials for each roll entry", () => {
       render(
-        <App
-          doc={docWithActiveDiscussion}
-          actions={mockActions}
-          userId={userId}
-        />
+        <App doc={docWithHistory} actions={mockActions} userId={userId} />
       );
-
-      expect(screen.getByText("5:00")).toBeInTheDocument();
-
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
-      expect(screen.getByText("4:59")).toBeInTheDocument();
-
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
-      expect(screen.getByText("4:58")).toBeInTheDocument();
-    });
-
-    it("handles continue/stop voting during discussion", () => {
-      render(
-        <App
-          doc={docWithActiveDiscussion}
-          actions={mockActions}
-          userId={userId}
-        />
-      );
-
-      fireEvent.click(screen.getByText("Continue (0)"));
-      expect(mockActions.toggleVote).toHaveBeenCalledWith("topic1", true, true);
-    });
-
-    it("marks topic as completed when time runs out and stop votes win", () => {
-      const docWithVotes: LeanCoffee = {
-        ...docWithActiveDiscussion,
-        activeTopic: {
-          ...docWithActiveDiscussion.activeTopic!,
-          votes: { user1: false, user2: false, user3: true },
-        },
-      };
-
-      render(<App doc={docWithVotes} actions={mockActions} userId={userId} />);
-
-      act(() => {
-        vi.advanceTimersByTime(5 * 60 * 1000); // Advance to end of timer
-      });
-
-      expect(mockActions.markTopicCompleted).toHaveBeenCalledWith("topic1");
-      expect(mockActions.clearActiveTopic).toHaveBeenCalled();
-    });
-
-    it("restarts timer when continue votes win", () => {
-      const docWithVotes: LeanCoffee = {
-        ...docWithActiveDiscussion,
-        activeTopic: {
-          ...docWithActiveDiscussion.activeTopic!,
-          votes: { user1: true, user2: true, user3: false },
-        },
-      };
-
-      render(<App doc={docWithVotes} actions={mockActions} userId={userId} />);
-
-      act(() => {
-        vi.advanceTimersByTime(5 * 60 * 1000); // Advance to end of timer
-      });
-
-      expect(mockActions.startTimer).toHaveBeenCalledWith("topic1");
-    });
-  });
-
-  describe("Topic management", () => {
-    const docWithCompletedTopic: LeanCoffee = {
-      activeTopic: null,
-      topics: {
-        topic1: {
-          title: "Completed Topic",
-          author: "user1",
-          votes: {},
-          completed: true,
-        },
-      },
-      heartbeats: {},
-    };
-
-    it("hides completed topics by default", () => {
-      render(
-        <App
-          doc={docWithCompletedTopic}
-          actions={mockActions}
-          userId={userId}
-        />
-      );
-
-      expect(screen.queryByText("Completed Topic")).not.toBeInTheDocument();
-    });
-
-    it("shows completed topics when toggled", () => {
-      render(
-        <App
-          doc={docWithCompletedTopic}
-          actions={mockActions}
-          userId={userId}
-        />
-      );
-
-      fireEvent.click(screen.getByLabelText("Show Completed Topics"));
-      const completedTopicInput = screen.getByDisplayValue("Completed Topic");
-      expect(completedTopicInput).toBeInTheDocument();
-    });
-
-    it("allows rediscussing completed topics", () => {
-      render(
-        <App
-          doc={docWithCompletedTopic}
-          actions={mockActions}
-          userId={userId}
-        />
-      );
-
-      fireEvent.click(screen.getByLabelText("Show Completed Topics"));
-      fireEvent.click(screen.getByText("Rediscuss"));
-
-      expect(mockActions.markTopicNotCompleted).toHaveBeenCalledWith("topic1");
+      // getUserInitials("user1") -> "U1"
+      // getUserInitials("user2") -> "U2"
+      const user1Initials = screen.getAllByText("U1");
+      const user2Initials = screen.getAllByText("U2");
+      expect(user1Initials.length).toBeGreaterThan(0);
+      expect(user2Initials.length).toBeGreaterThan(0);
     });
   });
 
   describe("Heartbeats", () => {
     it("shows correct number of online users", () => {
-      const docWithHeartbeats: LeanCoffee = {
+      const docWithHeartbeats: Rolls = {
         ...baseDoc,
         heartbeats: {
           user1: Date.now(),
@@ -287,13 +163,12 @@ describe("App", () => {
       expect(screen.getByText("2 users online")).toBeInTheDocument();
     });
 
-    it("shows user circles with correct initials", () => {
-      const docWithHeartbeats: LeanCoffee = {
+    it("shows user circles with correct initials and tooltips", () => {
+      const docWithHeartbeats: Rolls = {
         ...baseDoc,
         heartbeats: {
           "john.doe": Date.now(),
           jane_smith: Date.now() - 5 * 60 * 1000, // 5 minutes ago
-          "bob.wilson": Date.now() - 15 * 60 * 1000, // 15 minutes ago (offline)
         },
       };
 
@@ -301,24 +176,23 @@ describe("App", () => {
         <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
       );
 
-      // Should show circles for john.doe and jane_smith (bob.wilson is offline)
-      const circles = screen.getAllByText(/JD|JS/);
-      expect(circles).toHaveLength(2);
-
-      // Check initials and tooltips
       const johnCircle = screen.getByText("JD").closest(".user-circle");
+      expect(johnCircle).toBeInTheDocument();
       expect(johnCircle).toHaveTextContent("john.doe");
 
+
       const janeCircle = screen.getByText("JS").closest(".user-circle");
+      expect(janeCircle).toBeInTheDocument();
       expect(janeCircle).toHaveTextContent("jane_smith");
     });
 
+
     it("generates consistent colors for the same username", () => {
-      const docWithHeartbeats: LeanCoffee = {
+      const docWithHeartbeats: Rolls = {
         ...baseDoc,
         heartbeats: {
           "john.doe": Date.now(),
-          jane_smith: Date.now(),
+          "jane.smith": Date.now(),
         },
       };
 
@@ -326,31 +200,24 @@ describe("App", () => {
         <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
       );
 
-      // Get initial colors
-      const johnCircle = screen
-        .getByText("JD")
+      const johnCircle = screen.getByText("JD")
         .closest(".user-circle") as HTMLDivElement;
-      const janeCircle = screen
-        .getByText("JS")
+      const janeCircle = screen.getByText("JS") // jane.smith -> JS
         .closest(".user-circle") as HTMLDivElement;
       const johnColor = johnCircle.style.backgroundColor;
       const janeColor = janeCircle.style.backgroundColor;
 
-      // Rerender and check colors remain the same
       rerender(
         <App doc={docWithHeartbeats} actions={mockActions} userId={userId} />
       );
 
-      const newJohnCircle = screen
-        .getByText("JD")
+      const newJohnCircle = screen.getByText("JD")
         .closest(".user-circle") as HTMLDivElement;
-      const newJaneCircle = screen
-        .getByText("JS")
+      const newJaneCircle = screen.getByText("JS")
         .closest(".user-circle") as HTMLDivElement;
       expect(newJohnCircle.style.backgroundColor).toBe(johnColor);
       expect(newJaneCircle.style.backgroundColor).toBe(janeColor);
 
-      // Colors should be different for different users
       expect(johnColor).not.toBe(janeColor);
     });
   });

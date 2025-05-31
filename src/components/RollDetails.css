@@ -1,0 +1,17 @@
+.roll-details {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+.roll-details .operator,
+.roll-details .separator {
+    color: var(--text-muted, #666);
+    margin: 0 0.5em;
+    font-size: 1.2em;
+}
+
+/* Add some spacing between dice groups */
+.roll-details>*:not(:last-child) {
+    margin-right: 0.5em;
+}

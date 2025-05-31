@@ -6,9 +6,9 @@ import { useState, useEffect } from "react";
 import {
   SharedStateActions,
   useSharedState,
-  type LeanCoffee,
-  type Votes,
 } from "./hooks/useSharedState";
+import { type Rolls, type Roll } from "./state.types";
+import RollDetails from "./components/RollDetails";
 
 /**
  * Get initials from a username
@@ -49,20 +49,17 @@ const generateUserColor = (username: string): string => {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
-const TIMER_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 const ONLINE_THRESHOLD = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 interface AppProps {
-  doc: LeanCoffee | undefined;
+  doc: Rolls | undefined;
   userId: string;
   actions: SharedStateActions;
 }
 
 export function App({ doc, userId, actions }: AppProps) {
-  const [showCompleted, setShowCompleted] = useState(false);
-  const [newTopicTitle, setNewTopicTitle] = useState("");
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [isFlashing, setIsFlashing] = useState(false);
+  const [diceExpression, setDiceExpression] = useState("");
+  const [description, setDescription] = useState("");
 
   // Function to check if a user is online
   const isUserOnline = (lastHeartbeat: number) => {
@@ -72,262 +69,109 @@ export function App({ doc, userId, actions }: AppProps) {
   // Get list of online users with their info
   const onlineUsers = doc?.heartbeats
     ? Object.entries(doc.heartbeats)
-        .filter(([, lastHeartbeat]) => isUserOnline(lastHeartbeat))
-        .map(([user]) => ({
-          id: user,
-          initials: getUserInitials(user),
-          color: generateUserColor(user),
-        }))
+      .filter(([, lastHeartbeat]) => isUserOnline(lastHeartbeat as number))
+      .map(([user]) => ({
+        id: user,
+        initials: getUserInitials(user),
+        color: generateUserColor(user),
+      }))
     : [];
 
-  useEffect(() => {
-    if (!doc?.activeTopic) {
-      setTimeLeft(null);
-      return;
-    }
-
-    const elapsed = Date.now() - doc.activeTopic.timerStarted;
-    const remaining = Math.max(0, TIMER_DURATION - elapsed);
-    setTimeLeft(remaining);
-
-    const timer = setInterval(() => {
-      const newElapsed = Date.now() - doc.activeTopic!.timerStarted;
-      const newRemaining = Math.max(0, TIMER_DURATION - newElapsed);
-      setTimeLeft(newRemaining);
-
-      if (newRemaining === 0) {
-        checkVoteResult();
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [doc?.activeTopic?.timerStarted, doc?.activeTopic?.id]);
-
-  const getTopicVoteCount = (votes: Votes) => {
-    return Object.values(votes).filter((v) => v).length;
+  const handleRoll = () => {
+    if (!diceExpression.trim()) return;
+    actions.roll(diceExpression, description);
+    setDiceExpression("");
+    setDescription("");
   };
 
-  const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
-
-  const addTopic = () => {
-    if (!newTopicTitle.trim()) return;
-    actions.addTopic(newTopicTitle);
-    setNewTopicTitle("");
-  };
-
-  const checkVoteResult = () => {
-    if (!doc?.activeTopic) return;
-
-    const continueVotes = Object.values(doc.activeTopic.votes).filter(
-      (v) => v
-    ).length;
-    const stopVotes = Object.values(doc.activeTopic.votes).filter(
-      (v) => !v
-    ).length;
-
-    if (continueVotes > stopVotes) {
-      setIsFlashing(true);
-      setTimeout(() => setIsFlashing(false), 1000);
-      // Restart timer
-      actions.startTimer(doc.activeTopic.id);
-    } else {
-      // Mark topic as completed and clear active topic
-      if (doc.activeTopic) {
-        actions.markTopicCompleted(doc.activeTopic.id);
-        actions.clearActiveTopic();
-      }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleRoll();
     }
   };
-
-  const sortedTopics = doc?.topics
-    ? Object.entries(doc.topics)
-        .filter(([, topic]) => topic && (showCompleted || !topic.completed))
-        .sort(([, a], [, b]) => {
-          if (!a || !b) return 0;
-          // Sort completed topics to the bottom
-          if (a.completed && !b.completed) return 1;
-          if (!a.completed && b.completed) return -1;
-          // Then sort by votes
-          return getTopicVoteCount(b.votes) - getTopicVoteCount(a.votes);
-        })
-    : [];
-
-  const hasUndiscussedTopics = sortedTopics.some(
-    ([, topic]) => topic && !topic.completed
-  );
-
-  const activeTopic = doc?.activeTopic ? doc.topics[doc.activeTopic.id] : null;
-  const continueVotes = doc?.activeTopic
-    ? Object.values(doc.activeTopic.votes).filter((v) => v).length
-    : 0;
-  const stopVotes = doc?.activeTopic
-    ? Object.values(doc.activeTopic.votes).filter((v) => !v).length
-    : 0;
 
   return (
     <>
       <header>
-        <h1>
-          <img src={automergeLogo} alt="Automerge logo" id="automerge-logo" />
-          Lean Coffee
-        </h1>
-        <div className="online-users">
-          <div className="online-users-circles">
-            {onlineUsers.map((user) => (
-              <div
-                key={user.id}
-                className="user-circle"
-                style={{ backgroundColor: user.color }}
-              >
-                {user.initials}
-                <span className="user-tooltip">{user.id}</span>
+        <div className="header-content">
+          <div className="header-left">
+            <h1>
+              <img src={automergeLogo} alt="Automerge logo" id="automerge-logo" />
+              Dice Roller
+            </h1>
+            <div className="online-users">
+              <div className="online-users-circles">
+                {onlineUsers.map((user) => (
+                  <div
+                    key={user.id}
+                    className="user-circle"
+                    style={{ backgroundColor: user.color }}
+                  >
+                    {user.initials}
+                    <span className="user-tooltip">{user.id}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="online-users-count">
-            {onlineUsers.length} user{onlineUsers.length !== 1 ? "s" : ""}{" "}
-            online
+              <div className="online-users-count">
+                {onlineUsers.length} user{onlineUsers.length !== 1 ? "s" : ""} online
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="timer-section">
-        {activeTopic ? (
-          <div>
-            <h2>Current Topic: {activeTopic.title}</h2>
-            <div className={`timer ${isFlashing ? "flash" : ""}`}>
-              {timeLeft !== null ? formatTime(timeLeft) : "5:00"}
-            </div>
-            <div className="vote-buttons">
-              <button
-                onClick={() =>
-                  actions.toggleVote(doc!.activeTopic!.id, true, true)
-                }
-                className={
-                  doc?.activeTopic?.votes[userId] === true ? "voted" : ""
-                }
-              >
-                Continue ({continueVotes})
-              </button>
-              <button
-                onClick={() =>
-                  actions.toggleVote(doc!.activeTopic!.id, true, false)
-                }
-                className={
-                  doc?.activeTopic?.votes[userId] === false ? "voted" : ""
-                }
-              >
-                Stop ({stopVotes})
-              </button>
-              <button onClick={checkVoteResult} className="call-vote">
-                Call Vote
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <h2>No Active Topic</h2>
-            {sortedTopics.length > 0 && (
-              <button
-                onClick={() => actions.startTimer(sortedTopics[0][0])}
-                disabled={!hasUndiscussedTopics}
-              >
-                Start Discussion
-              </button>
+      <main className="main-content">
+        <div className="roll-history">
+          <div className="history-table-container">
+            {doc?.history && doc.history.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Description</th>
+                    <th>Expression</th>
+                    <th>Details</th>
+                    <th>Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...doc.history].reverse().map((entry, index) => (
+                    <tr key={index}>
+                      <td>{getUserInitials(entry.userId)}</td>
+                      <td>{entry.description}</td>
+                      <td>{entry.roll.expression}</td>
+                      <td><RollDetails dice={entry.roll.dice} /></td>
+                      <td>{entry.roll.result}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p>No rolls yet. Make your first roll!</p>
             )}
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className="add-topic">
-        <input
-          type="text"
-          value={newTopicTitle}
-          onChange={(e) => setNewTopicTitle(e.target.value)}
-          placeholder="Add a new topic..."
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              addTopic();
-            }
-          }}
-        />
-        <button onClick={addTopic}>Add</button>
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Topic</th>
-            <th>Votes</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedTopics.map(
-            ([topicId, topic]) =>
-              topic && (
-                <tr
-                  key={topicId}
-                  className={topic.completed ? "completed" : ""}
-                >
-                  <td className={topic.completed ? "completed-text" : ""}>
-                    {topic.author === userId ? (
-                      <input
-                        type="text"
-                        value={topic.title}
-                        onChange={(e) =>
-                          actions.updateTopicTitle(topicId, e.target.value)
-                        }
-                        className={topic.completed ? "completed-text" : ""}
-                      />
-                    ) : (
-                      topic.title
-                    )}
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => actions.toggleVote(topicId)}
-                      className={topic.votes[userId] ? "voted" : ""}
-                      disabled={topic.completed}
-                    >
-                      {getTopicVoteCount(topic.votes)}
-                    </button>
-                  </td>
-                  <td>
-                    {!doc?.activeTopic && !topic.completed && (
-                      <button onClick={() => actions.startTimer(topicId)}>
-                        Discuss
-                      </button>
-                    )}
-                    {topic.completed && (
-                      <button
-                        onClick={() => actions.markTopicNotCompleted(topicId)}
-                      >
-                        Rediscuss
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              )
-          )}
-        </tbody>
-      </table>
-
-      <div className="show-completed">
-        <label>
-          <input
-            type="checkbox"
-            checked={showCompleted}
-            onChange={(e) => setShowCompleted(e.target.checked)}
-          />
-          Show Completed Topics
-        </label>
-      </div>
+        <div className="roll-inputs">
+          <div className="roll-inputs-container">
+            <input
+              type="text"
+              value={diceExpression}
+              onChange={(e) => setDiceExpression(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter dice expression (e.g., 2d6+3)"
+            />
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Optional description"
+            />
+            <button onClick={handleRoll}>Roll</button>
+          </div>
+        </div>
+      </main>
     </>
   );
 }

@@ -5,7 +5,7 @@ import wasm from "vite-plugin-wasm";
 
 export default defineConfig({
   // customize this to your repo name for github pages deploy
-  base: "/leancoffee/",
+  base: "/diceroller/",
 
   build: {
     target: "esnext",
