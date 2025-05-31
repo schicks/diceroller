@@ -5,7 +5,7 @@ export function createTestRepo() {
 }
 
 // Make createTestDoc generic and accept initialData
-export function createTestDoc<T = any>(repo: Repo, initialData?: T): AutomergeUrl {
+export function createTestDoc<T extends Record<string, unknown>>(repo: Repo, initialData?: T): AutomergeUrl {
   const handle = repo.create<T>(initialData ? { ...initialData } : undefined);
   const url = handle.url;
 

@@ -1,4 +1,4 @@
-import { Token, buildLexer, rule, alt, apply, kmid, lrec_sc, opt_sc, seq, str, tok, expectSingleResult, expectEOF } from 'typescript-parsec';
+import { Token, buildLexer, rule, alt, apply, kmid, lrec_sc, opt_sc, seq, tok, expectSingleResult, expectEOF } from 'typescript-parsec';
 
 // AST Node Types
 export enum Operator {

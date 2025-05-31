@@ -31,10 +31,11 @@ const evaluateAstNode = (node: AstNode, random: () => number): { result: number,
     switch (node.type) {
         case 'number':
             return { result: node.value, dice: [] }
-        case 'diceRoll':
+        case 'diceRoll': {
             const rollResult = rollAndCollect(node.count, node.sides, node.modifier)
             return { result: rollResult, dice: allDiceRolledThisEvaluation }
-        case 'binaryOp':
+        }
+        case 'binaryOp': {
             const leftEval = evaluateAstNode(node.left, random)
             const rightEval = evaluateAstNode(node.right, random)
             const combinedDice = leftEval.dice.concat(rightEval.dice)
@@ -42,7 +43,8 @@ const evaluateAstNode = (node: AstNode, random: () => number): { result: number,
                 return { result: leftEval.result + rightEval.result, dice: combinedDice }
             }
             return { result: leftEval.result - rightEval.result, dice: combinedDice }
-        case 'groupOp':
+        }
+        case 'groupOp': {
             if (node.groupOperator === '-') { // Disadvantage: roll twice, take lowest
                 const eval1 = evaluateAstNode(node.expression, random)
                 const eval2 = evaluateAstNode(node.expression, random)
@@ -56,6 +58,7 @@ const evaluateAstNode = (node: AstNode, random: () => number): { result: number,
             // Add handling for '+' (advantage) or other group operators if introduced
             // For now, just evaluate the inner expression if no specific groupOperator like '-' is present
             return evaluateAstNode(node.expression, random)
+        }
         default:
             // Should not happen with a well-formed AST from the parser
             throw new Error(`Unknown AST node type`)

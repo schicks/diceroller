@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
 import { createRollFunction, roll } from './roll'
-import type { Roll } from './state.types'
 
 describe('roll', () => {
     it('should export a default function that uses Math.random', () => {

@@ -2,12 +2,12 @@ import automergeLogo from "/automerge.png";
 import "@picocss/pico/css/pico.min.css";
 import "./App.css";
 import { type AutomergeUrl } from "@automerge/react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   SharedStateActions,
   useSharedState,
 } from "./hooks/useSharedState";
-import { type Rolls, type Roll } from "./state.types";
+import { type Rolls } from "./state.types";
 import RollDetails from "./components/RollDetails";
 
 /**
@@ -53,11 +53,11 @@ const ONLINE_THRESHOLD = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 interface AppProps {
   doc: Rolls | undefined;
-  userId: string;
+  _userId: string;
   actions: SharedStateActions;
 }
 
-export function App({ doc, userId, actions }: AppProps) {
+export function App({ doc, _userId, actions }: AppProps) {
   const [diceExpression, setDiceExpression] = useState("");
   const [description, setDescription] = useState("");
 
@@ -184,5 +184,5 @@ interface AppWrapperProps {
 export default function AppWrapper({ docUrl, userId }: AppWrapperProps) {
   const [doc, actions] = useSharedState(docUrl, userId);
 
-  return <App doc={doc} actions={actions} userId={userId} />;
+  return <App doc={doc} actions={actions} _userId={userId} />;
 }
