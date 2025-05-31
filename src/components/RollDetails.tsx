@@ -23,7 +23,6 @@ export function RollDetailsImpl({ dice }: RollDetailsProps) {
         dice[0].every((die, i) => die.sides === dice[1][i].sides);
 
     const DieGroup = ({ dieSet }: { dieSet: DieResultType[] }) => {
-        const dieGroupText = formatDieGroupText(dieSet);
         return (
             <span>
                 {dieSet.map((die, index) => (
